@@ -1,7 +1,10 @@
-from flask import Flask, make_response, send_from_directory, request
+from flask import Flask, make_response, send_from_directory, request, redirect
+import time, datetime
 import os
 import package
 import json
+import cfapi
+import util
 app = Flask(__name__)
 
 app.config["REPO_URL"] = "http://localhost:5000"
@@ -17,6 +20,18 @@ def setup():
         f = open("./assets/conf.json", "w")
         f.write('{"api_type": 1, "name": "My Mod Repository"}')
         f.close()
+    if(not os.path.isfile("./assets/pkgs_to_track.json")):
+        f = open("./assets/pkgs_to_track.json", "w")
+        f.write('{"cf_ids": [], "packages": []}')
+        f.close()
+
+def update_packages():
+    idx = util.get_idx()
+    j = util.get_cf_idx()
+    for i, pkg in enumerate(j['packages']):
+        cfp = cfapi.get_package(pkg['cf_id'])
+        if pkg['last_modified'] < int(datetime.datetime.fromisoformat(cfp['dateModified'][:-5]).timestamp() * 1000):
+            cfapi.update_package(pkg['local_id'])
 
 
 @app.route("/")
@@ -35,13 +50,19 @@ def get_repo_info():
 
 @app.route("/v1/download_release/<pkg_id>/<release_id>")
 def get_file(pkg_id, release_id):
-    resp = make_response(send_from_directory(f"./assets/{pkg_id}/{release_id}","file.jar"))
+    # resp = make_response(send_from_directory(f"./assets/{pkg_id}/{release_id}","file.jar"))
+    # f = open("./assets/pkg_index.json")
+    # j = json.loads(f.read())
+    # j['packages'][int(pkg_id)]['releases'][int(release_id)]['downloads'] += 1
+    # f = open("./assets/pkg_index.json", "w")
+    # f.write(json.dumps(j))
+    # f.close()
+
     f = open("./assets/pkg_index.json")
     j = json.loads(f.read())
     j['packages'][int(pkg_id)]['releases'][int(release_id)]['downloads'] += 1
-    f = open("./assets/pkg_index.json", "w")
-    f.write(json.dumps(j))
-    f.close()
+
+    return redirect(j['packages'][int(pkg_id)]['releases'][int(release_id)]['direct_link'])
 
     return resp
 
@@ -86,6 +107,9 @@ def upload_release_file_post(pkg_id, release_id):
 
 if __name__ == "__main__":
     setup()
+    cfapi.create_tracked_pkgs()
+    # cfapi.add_pkg_to_idx(506757)
+    # update_packages()
     # of2 = package.Package.create_new("OptiFine2", "A performance enchancing mod but better")
     # package.Release.create_new("HD_U_G9", "1.16.5", [], of2.id)
     app.run()
