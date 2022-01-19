@@ -3,6 +3,7 @@ import os
 import json
 import time
 import util
+from cfapi import REPOSITORY
 
 class Package:
     id: int = -1
@@ -11,24 +12,28 @@ class Package:
     repository: str = app.config["REPO_URL"]
     repository_id: int = -1
     releases: list = []
+    authors: list = []
 
-    def __init__(self, id, name, description, repository_id = 0, repository=app.config["REPO_URL"], releases = []):
+    def __init__(self, id, name, description, authors, repository_id, repository=app.config["REPO_URL"], releases = []):
         self.id = id
         self.name = name
         self.description = description
+        self.authors = authors
         self.repository = repository
-        self.repository_id = id
+        self.repository_id = repository_id
         self.releases = releases
         
     @classmethod
-    def create_new(cls, name, description, repository=app.config['REPO_URL'], repository_id=None):
+    def create_new(cls, name, description, authors, repository=app.config['REPO_URL'], repository_id=None):
         f = open("./assets/pkg_index.json", "r")
         j = util.get_idx()
         if repository_id:
+            print(repository_id)
             p = cls(
                 id=j["next_pkg_id"], 
                 name=name, 
                 description=description,
+                authors=authors,
                 repository=repository,
                 repository_id=repository_id
                 )
@@ -37,9 +42,11 @@ class Package:
             id=j["next_pkg_id"], 
             name=name, 
             description=description,
-            repository=repository
+            authors=authors,
+            repository=repository,
+            repository_id=j["next_pkg_id"]
             )
-        os.mkdir(f"./assets/{j['next_pkg_id']}")
+        # os.mkdir(f"./assets/{j['next_pkg_id']}")
         j["next_pkg_id"] += 1
         j["packages"].append(p.as_json())
         f = open("./assets/pkg_index.json", "w")
@@ -58,6 +65,7 @@ class Package:
             id = p_json['id'],
             name = p_json['name'],
             description= p_json['description'],
+            authors=p_json['authors'],
             repository= p_json['repository'],
             repository_id= p_json['repository_id'],
             releases= p_json['releases']
@@ -69,11 +77,14 @@ class Package:
         j['id'] = self.id
         j['name'] = self.name
         j['description'] = self.description
+        j['authors'] = self.authors
         j['repository'] = self.repository
-        j['repository_id'] = self.id
+        j['repository_id'] = self.repository_id
         j['releases'] = self.releases
         return j
-
+    
+    def next_release_id(self):
+        return len(self.releases)
 
 class Release:
     id: int = 1
@@ -97,7 +108,7 @@ class Release:
         self.prefer_link = prefer_link
     
     @classmethod
-    def create_new(cls, version, game_version, deps: list, parent_package_id: int, direct_link: str = "", prefer_link: bool = False):
+    def create_new(cls, version, game_version, deps: list, parent_package_id: int, direct_link = None, prefer_link: bool = False, released=time.time_ns()):
         f = open("./assets/pkg_index.json")
         j = json.loads(f.read())
 
@@ -115,14 +126,15 @@ class Release:
             deps=deps,
             parent_package_id=parent_package_id,
             direct_link=dlink,
-            prefer_link=prefer_link
+            prefer_link=prefer_link,
+            released=released
         )
 
         j['packages'][parent_package_id]['releases'].append(rel.as_json())
         f = open("./assets/pkg_index.json", "w")
         f.write(json.dumps(j))
         f.close()
-        os.mkdir(f"./assets/{parent_package_id}/{this_id}")
+        # os.mkdir(f"./assets/{parent_package_id}/{this_id}")
     
     @classmethod 
     def obj_from_id(cls, pkg_id, release_id):
@@ -147,9 +159,8 @@ class Release:
         j['id'] = self.id
         j['version'] = self.version
         j['game_version'] = self.game_version
-        j['deps'] = []
-        for dep in self.deps:
-            j['deps'].append(dep.as_json())
+        # j['deps'] = []
+        j['deps'] = self.deps
         j['parent_package_id'] = self.parent_package_id
         j['released'] = self.released
         j['downloads'] = self.downloads
@@ -160,11 +171,21 @@ class Release:
 class Dependency:
     pkg_id: int = 1
     release_id: int = 1
+    repo: str = REPOSITORY
 
-    def __init__(self, release):
-        self.pkg_id = release['parent_package_id']
-        self.release_id = release['id']
+    def __init__(self, pkg_id, release_id):
+        self.pkg_id = pkg_id
+        self.release_id = release_id
     
+    @classmethod
+    def create_new(cls, release):
+        d = cls(
+        pkg_id = release['parent_package_id'],
+        release_id = release['id']
+        )
+        return d
+
+
     def as_json(self):
         j = json.loads("{}")
         j['pkg_id'] = self.pkg_id
@@ -180,18 +201,23 @@ def release_compatible(r1: str, r2: str) -> bool:
     arr1 = r1.split(".")
     arr2 = r2.split(".")
     a = (r1 == r2) or (arr1[:2] == arr2[:2])
-    print(f"{arr1} {arr2} {a}")
+    # print(f"{arr1} {arr2} {a}")
     return a
 
 def sort_by_timestamp(rel):
     return rel['released']
 
-def get_newest_release(pkg_id: int, game_version: str, override_ver = False) -> Release:
+def get_newest_release(pkg_id: int, game_version: str) -> Release:
     pkg = Package.obj_from_id(pkg_id)
-    print(f"{pkg.releases} {game_version}")
-    if not override_ver:
-        rels = [rel for rel in pkg.releases if release_compatible(rel['game_version'], game_version)]
-    else:
+    
+    rels = [rel for rel in pkg.releases if release_compatible(rel['game_version'], game_version)]
+    
+    if len(rels) == 0 or rels == None:
         rels = pkg.releases
+        print(f"compatible version for {pkg.name} mc {pkg.game_version} not found, selecting latest release")
+
+    # print(rels)
     rels.sort(key=sort_by_timestamp)
+    # print(rels)
+    rels.reverse()
     return rels[0]

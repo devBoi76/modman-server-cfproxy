@@ -10,7 +10,7 @@ REPOSITORY = "https://curseforge.com"
 def add_pkg_to_tracked(cf_id: int):
     j = util.get_cf_idx()
     j['cf_ids'] = util.arr_add(j['cf_ids'], cf_id)
-    print(j)
+    # print(j)
     f = open("./assets/pkgs_to_track.json", "w")
     f.write(json.dumps(j))
     f.close()
@@ -36,7 +36,7 @@ def set_last_indexed(local_id: int, last_modified):
     f.write(json.dumps(j))
 
 def has_pkg_from_cf(cf_id: int) -> int:
-    print(f"has_pkg_from_cf: {cf_id}")
+    # print(f"has_pkg_from_cf: {cf_id}")
     j = util.get_cf_idx()['packages']
     # print(j)
     # pkgs = [pkg for pkg in j if pkg['cf_id'] == cf_id]
@@ -46,89 +46,110 @@ def has_pkg_from_cf(cf_id: int) -> int:
     return pkgs[0]['local_id']
 
 def add_pkg_to_idx(cf_id: int):
+    # first, we build the dependency tree
     
-    pkgs_to_add = [cf_id] # set
-    to_add = 1
-    added_pkgs = []
-    added = 0
-    rels_to_resolve = []
-    iterator = 0
-    
-    while to_add > added:
-        cf_id = pkgs_to_add[iterator]
+    dependency_list = {f"{cf_id}": []}
+    root = cf_id
+    ids_todo = [cf_id]
+    resolved_ids = []
+    search_for_deps = True
+    while search_for_deps:
+        print(dependency_list)
+        if len(ids_todo) == 0:
+            search_for_deps = False
+            break
         
-        print(f"pkgs_to_add: {pkgs_to_add}")
-        print(f"adding pkg: {cf_id}")
-        add_pkg_to_tracked(cf_id)
-        if has_pkg_from_cf(cf_id) == -1:
-            pkg = get_package(cf_id)
-            releases = get_releases(cf_id)
-            j = util.get_idx()
+        current_id = ids_todo.pop()
+        print(f"doing {current_id}")
 
-            p = package.Package.create_new(pkg['name'], pkg['summary'], repository=REPOSITORY, repository_id=cf_id)
-            
-            cfidx = util.get_cf_idx()
-            cfidx['packages'].append({"cf_id": cf_id, "local_id": p.id, "last_modified": util.time_ms()})
-            print(cfidx)
-            f = open("./assets/pkgs_to_track.json", "w")
-            f.write(json.dumps(cfidx))
-            f.close()
+        releases = get_releases(current_id)
+        
+        started_at = dependency_list
+        for rel in releases:
+            for dep in rel['dependencies']:
+                if dep['type'] != 2:
+                    if resolved_ids.count(dep['addonId']) == 0:
+                        ids_todo = util.arr_add(ids_todo, dep['addonId'])
+                    try:
+                        dependency_list[f"{current_id}"] = util.arr_add(dependency_list[f"{current_id}"], dep['addonId'])
+                    except:
+                        dependency_list[f"{current_id}"] = util.arr_add(None, dep['addonId'])
+                else:
+                    print(f"Ignoring optional (pass 1) {dep} for {current_id}")
+        
+        resolved_ids = util.arr_add(resolved_ids, current_id)
 
-            for i, rel in enumerate(releases):
-                deps = []
-                print(rel['dependencies'])
-                print(i)
-                for dep in rel['dependencies']:
-                    a = has_pkg_from_cf(dep['addonId'])
-                    b = rel['gameVersion'][0]
-                    print('start')
-                    addon_versions = map(lambda r: r['gameVersion'][0], get_releases(dep['addonId']))
-                    override_ver = True
-                    print('end')
-
-                    
-                    for ver in addon_versions:
-                        if package.release_compatible(ver, b):
-                            override_ver = False
-                            break
-
-                    if a > -1:
-                        deps.append( package.Dependency(package.get_newest_release(a, rel['game_version'][0], override_ver=override_ver)))
-                    else:
-                        rel['parent_id'] = p.id
-                        rels_to_resolve.append(rel)
-                        pkgs_to_add = util.arr_add(pkgs_to_add, dep['addonId'])
-                        to_add = len(pkgs_to_add)
-                        print(f"adding id: {dep['addonId']}")
-
-                package.Release.create_new("unknown", rel['gameVersion'][0], deps, p.id, direct_link=rel['downloadUrl'].replace("https://edge.", "https://media."), prefer_link=True)
-        iterator += 1
-        added_pkgs.append(cf_id)
-        added += 1
-        print(pkgs_to_add)
+    # at this point we have all the needed packages
     
-    for rel in rels_to_resolve:
-        deps = []
-        for dep in rel['dependencies']:
-            a = has_pkg_from_cf(dep['addonId'])
-            if a > -1:
-                a = has_pkg_from_cf(dep['addonId'])
-                b = rel['gameVersion'][0]
-                print('start2')
-                addon_versions = map(lambda r: r['gameVersion'][0], get_releases(dep['addonId']))
-                override_ver = True
-                print('end2')
+    # make an array with the order of installation
+    # ids_todo can be reused cuz they're empty
+    left_to_resolve = dependency_list
+    all_done = False
+    ids_todo = [root]
+    ordered = [root] # end with the root
+    while not all_done:
+        if len(ids_todo) == 0: # no more unresolved packages
+            all_done = True
+            break
 
-                
-                for ver in addon_versions:
-                    if package.release_compatible(ver, b):
-                        override_ver = False
-                        break
-                deps.append( package.Dependency(package.get_newest_release(a, rel['gameVersion'][0], override_ver=override_ver)))
-            else:
-                print("UNREACHABLE ERROR - PKG FOR DEPENDENCY NOT FOUND")
+        print(ordered)
+        current_id = ids_todo.pop()
+        
+        try:
+            _ = left_to_resolve[f"{current_id}"]
+        except:
+            left_to_resolve[f"{current_id}"] = []
 
-        package.Release.create_new("unknown", rel['gameVersion'][0], deps, rel['parent_id'], direct_link=rel['downloadUrl'].replace("https://edge.", "https://media."), prefer_link=True)
+        for dep in left_to_resolve[f"{current_id}"]:
+            ids_todo.append(dep)
+            # always move the required id to the top
+            ordered = list(filter(lambda id: id != dep, ordered))
+            ordered.append(dep)
+    
+    print(f"final order: {ordered}")
+
+    all_added = False
+    while not all_added:
+        if len(ordered) == 0:
+            all_added = True
+            break
+
+        current_id = ordered.pop()
+        print(f"installing {current_id}")
+        if has_pkg_from_cf(current_id) > -1:
+            print(f"has {current_id}")
+            continue
+
+        # add the package to our index
+        pkg = get_package(current_id)
+        rels = get_releases(current_id)
+        print(f"{len(rels)} releases")
+        authors = []
+        for au in pkg['authors']:
+            authors.append(au['name'])
+
+        p = package.Package.create_new(pkg['name'], pkg['summary'], authors, repository=REPOSITORY, repository_id=current_id)
+
+        # do everything we have to with the index file
+        add_pkg_to_tracked(p.repository_id)
+        
+        cf_idx = util.get_cf_idx()
+        cf_idx['packages'].append({"cf_id": current_id, "local_id": p.id, "last_modified": util.time_ms()})
+        f = open("./assets/pkgs_to_track.json", "w")
+        f.write(json.dumps(cf_idx))
+        f.close()
+
+
+        for rel in rels:
+            deps = []
+            for dep in rel['dependencies']:
+                if dep['type'] != 2:
+                    depid = has_pkg_from_cf(dep['addonId'])
+                    deps.append( {"pkg_id": depid, "release_id": package.get_newest_release(depid, rel['gameVersion'][0])['id'], "repo": REPOSITORY})
+                else:
+                    print(f"Ignoring optional (pass 2) {dep} for {p.id}")
+            
+            r = package.Release.create_new("unknown", rel['gameVersion'][0], deps, p.id, released=util.iso_str_to_ms(rel['fileDate']), direct_link=rel['downloadUrl'].replace("https://edge.", "https://media."), prefer_link=True)
 
 def update_package(local_id: int):
     p = package.Package.obj_from_id(local_id)
@@ -150,15 +171,29 @@ def create_tracked_pkgs():
         else:
             add_pkg_to_idx(id)
 
+@functools.lru_cache(maxsize=256)
 def get_package(cf_id: int):
-    a = requests.get(BASE_URL+ f"/{cf_id}/", headers={"User-Agent": USER_AGENT}).text
+    got_result = False
+    while not got_result:
+        a = requests.get(BASE_URL+ f"/{cf_id}/", headers={"User-Agent": USER_AGENT}).text
+        try:
+            pkg = json.loads(a)
+            got_result = True
+        except:
+            continue
     # print(a)
-    pkg = json.loads(a)
     return pkg
 
 @functools.lru_cache(maxsize=256)
 def get_releases(cf_id: int):
-    a = requests.get(BASE_URL+ f"/{cf_id}/files/", headers={"User-Agent": USER_AGENT}).text
+    got_result = False
+    while not got_result:
+        a = requests.get(BASE_URL+ f"/{cf_id}/files/", headers={"User-Agent": USER_AGENT}).text
+        try:
+            releases = json.loads(a)
+            got_result = True
+        except:
+            continue
+
     # print(a)
-    releases = json.loads(a)
     return releases
