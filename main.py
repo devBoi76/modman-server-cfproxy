@@ -30,7 +30,7 @@ def update_packages():
     j = util.get_cf_idx()
     for i, pkg in enumerate(j['packages']):
         cfp = cfapi.get_package(pkg['cf_id'])
-        if pkg['last_modified'] < int(datetime.datetime.fromisoformat(cfp['dateModified'][:-5]).timestamp() * 1000):
+        if pkg['last_modified'] < util.iso_str_to_ms(cfp['dateModified']):
             cfapi.update_package(pkg['local_id'])
 
 

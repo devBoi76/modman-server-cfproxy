@@ -13,10 +13,12 @@ class Package:
     repository_id: int = -1
     releases: list = []
     authors: list = []
+    slug: str = ""
 
-    def __init__(self, id, name, description, authors, repository_id, repository=app.config["REPO_URL"], releases = []):
+    def __init__(self, id, name, slug, description, authors, repository_id, repository=app.config["REPO_URL"], releases = []):
         self.id = id
         self.name = name
+        self.slug = slug
         self.description = description
         self.authors = authors
         self.repository = repository
@@ -24,14 +26,15 @@ class Package:
         self.releases = releases
         
     @classmethod
-    def create_new(cls, name, description, authors, repository=app.config['REPO_URL'], repository_id=None):
+    def create_new(cls, name, slug, description, authors, repository=app.config['REPO_URL'], repository_id=None):
         f = open("./assets/pkg_index.json", "r")
         j = util.get_idx()
         if repository_id:
             print(repository_id)
             p = cls(
                 id=j["next_pkg_id"], 
-                name=name, 
+                name=name,
+                slug=slug,
                 description=description,
                 authors=authors,
                 repository=repository,
@@ -41,6 +44,7 @@ class Package:
             p = cls(
             id=j["next_pkg_id"], 
             name=name, 
+            slug=slug,
             description=description,
             authors=authors,
             repository=repository,
@@ -62,13 +66,14 @@ class Package:
         f.close()
         p_json = j['packages'][id]
         p = cls(
-            id = p_json['id'],
-            name = p_json['name'],
-            description= p_json['description'],
+            id=p_json['id'],
+            name=p_json['name'],
+            slug=p_json['slug'],
+            description=p_json['description'],
             authors=p_json['authors'],
-            repository= p_json['repository'],
-            repository_id= p_json['repository_id'],
-            releases= p_json['releases']
+            repository=p_json['repository'],
+            repository_id=p_json['repository_id'],
+            releases=p_json['releases']
         )
         return p
 
@@ -76,6 +81,7 @@ class Package:
         j = json.loads('{}')
         j['id'] = self.id
         j['name'] = self.name
+        j['slug'] = self.slug
         j['description'] = self.description
         j['authors'] = self.authors
         j['repository'] = self.repository
@@ -214,7 +220,7 @@ def get_newest_release(pkg_id: int, game_version: str) -> Release:
     
     if len(rels) == 0 or rels == None:
         rels = pkg.releases
-        print(f"compatible version for {pkg.name} mc {pkg.game_version} not found, selecting latest release")
+        print(f"compatible version for {pkg.name} mc {game_version} not found, selecting latest release")
 
     # print(rels)
     rels.sort(key=sort_by_timestamp)

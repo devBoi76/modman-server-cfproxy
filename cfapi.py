@@ -128,7 +128,7 @@ def add_pkg_to_idx(cf_id: int):
         for au in pkg['authors']:
             authors.append(au['name'])
 
-        p = package.Package.create_new(pkg['name'], pkg['summary'], authors, repository=REPOSITORY, repository_id=current_id)
+        p = package.Package.create_new(pkg['name'], pkg['slug'], pkg['summary'], authors, repository=REPOSITORY, repository_id=current_id)
 
         # do everything we have to with the index file
         add_pkg_to_tracked(p.repository_id)
@@ -151,15 +151,18 @@ def add_pkg_to_idx(cf_id: int):
             
             r = package.Release.create_new("unknown", rel['gameVersion'][0], deps, p.id, released=util.iso_str_to_ms(rel['fileDate']), direct_link=rel['downloadUrl'].replace("https://edge.", "https://media."), prefer_link=True)
 
-def update_package(local_id: int):
+def update_releases(local_id: int):
     p = package.Package.obj_from_id(local_id)
     releases = get_releases(p.repository_id)
+
     
-    os.rmdir(f"./assets/{local_id}/")
+    new_releases = len(releases) - len(p.releases)
+    print(f"New releases for {p.name}: {new_releases}")
     
-    for rel in releases:
-        package.Release.create_new("unknown", rel['gameVersion'][0], [], p.id, direct_link=rel['downloadUrl'].replace("https://edge.", "https://media."), prefer_link=True)
-    set_last_indexed(local_id, util.time_ms())
+    
+    # for rel in releases:
+    #     package.Release.create_new("unknown", rel['gameVersion'][0], [], p.id, direct_link=rel['downloadUrl'].replace("https://edge.", "https://media."), prefer_link=True)
+    # set_last_indexed(local_id, util.time_ms())
 
 def create_tracked_pkgs():
     j = util.get_cf_idx()
@@ -167,7 +170,8 @@ def create_tracked_pkgs():
     for id in cf_ids:
         print(f"create_tracked_pkgs() {id}")
         if has_pkg_from_cf(id) > -1:
-            continue
+            update_releases(has_pkg_from_cf(id))
+        
         else:
             add_pkg_to_idx(id)
 
