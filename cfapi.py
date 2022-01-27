@@ -141,6 +141,9 @@ def add_pkg_to_idx(cf_id: int):
 
 
         for rel in rels:
+            if len(rel['gameVersion']) == 0:
+                print(f"game version not found for {rel['displayName']} id {rel['id']}. Skipping")
+                continue
             deps = []
             for dep in rel['dependencies']:
                 if dep['type'] != 2:
@@ -164,16 +167,26 @@ def update_releases(local_id: int):
     #     package.Release.create_new("unknown", rel['gameVersion'][0], [], p.id, direct_link=rel['downloadUrl'].replace("https://edge.", "https://media."), prefer_link=True)
     # set_last_indexed(local_id, util.time_ms())
 
-def create_tracked_pkgs():
-    j = util.get_cf_idx()
-    cf_ids = j['cf_ids']
+def create_tracked_pkgs(cf_ids):
     for id in cf_ids:
         print(f"create_tracked_pkgs() {id}")
         if has_pkg_from_cf(id) > -1:
-            update_releases(has_pkg_from_cf(id))
+            # update_releases(has_pkg_from_cf(id))
+            continue
         
         else:
             add_pkg_to_idx(id)
+
+def crawl_curseforge(start_index: int):
+    page_size = 50
+    i = start_index
+    while True:
+        packages = get_page(i)
+        for pkg in packages:
+            create_tracked_pkgs([pkg['id']])
+
+        i += 1
+
 
 @functools.lru_cache(maxsize=256)
 def get_package(cf_id: int):
@@ -201,3 +214,18 @@ def get_releases(cf_id: int):
 
     # print(a)
     return releases
+
+def get_page(page: int):
+    PAGE_SIZE=50
+
+    got_result = False
+    while not got_result:
+        a = requests.get(BASE_URL+ f"/search?gameId=432&sectionId=6&pageSize={PAGE_SIZE}&index={page}", headers={"User-Agent": USER_AGENT}).text
+        try:
+            packages = json.loads(a)
+            got_result = True
+        except:
+            continue
+
+    print(a)
+    return packages

@@ -67,7 +67,10 @@ def get_available_packages():
 
 if __name__ == "__main__":
     setup()
-    cfapi.create_tracked_pkgs()
+    j = util.get_cf_idx()
+    cf_ids = j['cf_ids']
+    cfapi.create_tracked_pkgs(cf_ids)
+    # cfapi.crawl_curseforge(5)
     app.run()
 
 
