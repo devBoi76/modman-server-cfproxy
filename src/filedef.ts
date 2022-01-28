@@ -15,7 +15,7 @@ export function get_index(): index {
     return JSON.parse(f);
 }
 
-export function write(file: index | tracked | conf, name: string) {
+export function write(file: index | tracked | conf, name: "index"|"tracked"|"conf") {
     switch(name) {
         case "index":
             fs.writeFileSync("./assets/pkg_index.json", JSON.stringify(file))
@@ -46,9 +46,11 @@ export function get_tracked(): tracked {
 export class conf {
     api_type: number;
     name: string;
+    crawl: boolean;
     constructor() {
         this.api_type = 1;
         this.name = "My mod repository";
+        this.crawl = false;
     }
 }
 

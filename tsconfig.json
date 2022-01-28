@@ -13,7 +13,9 @@
     "src/main.ts",
     "src/cfapi.ts",
     "src/util.ts",
-    "src/package.ts"
+    "src/package.ts",
+    "src/filedef.ts",
+    "src/config.ts"
   ],
   "lib": ["es2015"]
 }

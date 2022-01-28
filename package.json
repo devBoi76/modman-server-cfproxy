@@ -2,6 +2,8 @@
   "dependencies": {
     "express": "^4.17.2",
     "mc-curseforge-api": "^2.2.3",
+    "node-fetch": "2",
+    "path": "^0.12.7",
     "prompt-sync": "^4.2.0",
     "xmlhttprequest": "^1.8.0"
   },

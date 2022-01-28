@@ -1,6 +1,7 @@
 import * as packages from "./package"
 import * as util from "./util"
 import * as filedef from "./filedef"
+import fetch from "node-fetch"
 import { REPOSITORY } from "./main"
 
 // All of this is based on https://github.com/Mondanzo/mc-curseforge-api
@@ -43,32 +44,39 @@ class CfPackage {
 let cf_package_cache = new Map<number, CfPackage>();
 let cf_release_cache = new Map<number, Array<CfRelease>>();
 
-export function get_releases(cf_id: number): Array<CfRelease> {
+export async function get_releases(cf_id: number): Promise<Array<CfRelease>> {
     if (cf_release_cache.has(cf_id)) {
         return cf_release_cache.get(cf_id)
     }
-    let resp = util.get_sync(`${BASE_URL}/${cf_id}/files`);
-    let tmp = JSON.parse(resp);
+    let resp = await fetch(`${BASE_URL}/${cf_id}/files`);
+    let tmp = await resp.json();
     cf_release_cache.set(cf_id, tmp);
     return tmp;
 }
 
-export function get_package(cf_id: number): CfPackage {
+export async function get_package(cf_id: number): Promise<CfPackage> {
     if (cf_package_cache.has(cf_id)) {
         return cf_package_cache.get(cf_id);
     }
-    let resp = util.get_sync(`${BASE_URL}/${cf_id}`);
-    let tmp = JSON.parse(resp);
+    let resp = await fetch(`${BASE_URL}/${cf_id}`);
+    let tmp = await resp.json()
     cf_package_cache.set(cf_id, tmp);
     return tmp;
 }
 
-export function add_pkg_to_tracked(cf_id: number, sslug: string) {
-
+export function get_page(page: number, PAGE_SIZE?: number): Array<CfPackage> {
+    let resp = util.get_sync(`${BASE_URL}/search?gameId=432&sectionId=6&index=${page}&pageSize=${PAGE_SIZE ?? 5}`);
+    let tmp: Array<CfPackage> = JSON.parse(resp);
+    // cache
+    for(const pkg of tmp) {
+        if (!cf_package_cache.has(pkg.id)) {
+            cf_package_cache.set(pkg.id, pkg);
+        }
+    }
+    return tmp;
 }
 
-// TODO: Cache curseforge api responses
-export function index_package(id_to_add: number) {
+export async function index_package(id_to_add: number) {
     // Step one: build a dependency tree
     let dependency_tree = new Map<number, Set<number>>();
     let ids_to_do = [id_to_add];
@@ -79,19 +87,21 @@ export function index_package(id_to_add: number) {
         }
         let current_id = ids_to_do.pop();
 
-        let releases = get_releases(current_id);
+        let releases = await get_releases(current_id);
 
         for (const release of releases) {
             for (const dependency of release.dependencies) {
 
 
                 switch(dependency.type) {
-                    case 1:
                     case 2:
-                    case 5:
-                        break;
-                    case 6:
-                    case 3:
+                        case 5:
+                            util.print_debug(`Encountered  (${dependency.type}) dependency type for ${current_id} release ${release.displayName} - skipping`);
+                            break;
+                        case 6:
+                        case 4:
+                        case 3:
+                        case 1:
                         // required
                         if (!resolved_ids.has(dependency.addonId)) {
                             ids_to_do.push(dependency.addonId);
@@ -102,9 +112,6 @@ export function index_package(id_to_add: number) {
                         }
                         tmp.add(dependency.addonId);
                         dependency_tree.set(current_id, tmp);
-                        break;
-                    case 4:
-                        util.print_debug(`Encountered 'Tool' (4) dependency type for ${current_id} release ${release.displayName} - skipping`);
                         break;
                     
                     default:
@@ -145,8 +152,8 @@ export function index_package(id_to_add: number) {
         let current_id = ordered.pop();
         util.print_debug(`Installing ${current_id}`);
 
-        let pkg = get_package(current_id);
-        let releases = get_releases(current_id);
+        let pkg = await get_package(current_id);
+        let releases = await get_releases(current_id);
         if (filedef.get_tracked().packages.map( (p) => p.slug).includes(pkg.slug)) {
             util.print_debug(`Package ${pkg.name} already installed, skipping`);
             continue;
@@ -172,7 +179,7 @@ export function index_package(id_to_add: number) {
             }
             let dependencies = new Array<string>(); // sslugs
             for (const dependency of release.dependencies) {
-                let ppkg = get_package(dependency.addonId);
+                let ppkg = await get_package(dependency.addonId);
                 let ppkg_loc = packages.Locator.from_short_slug(`${REPOSITORY}->${ppkg.slug}->0`)
                 let local_pkg = packages.locator_to_package(ppkg_loc, filedef.get_index().packages);
                 let rel_id = packages.get_desired_release(local_pkg, release.gameVersion[0]).id;
@@ -189,31 +196,17 @@ export function index_package(id_to_add: number) {
             );
             r_id += 1;
         }
-
     }
-    // to_add.add(id_to_add);
-    // for (const cf_id of to_add) {
-    //     let pkg = get_package(cf_id);
-    //     // create new package, add it to tracked and index
-    //     let p = packages.Package.create_new(pkg.name, pkg.summary,pkg.authors.map( (author) => {return author.name}), [], REPOSITORY, pkg.slug)
+}
 
-    //     packages.TrackedPackage.mark_updated(cf_id, p.slug);
-        
-    //     // index the releases and get all dependencies in order in which they should be installed
-    //     const releases = get_releases(cf_id);
-        
-    //     for (const release of releases) {
-    //         let deps = [];
-    //         let loader = "Forge";
-    //         if (release.gameVersion.includes("Fabric")) {
-    //             loader = "Fabric";
-    //         }
-    //         release.gameVersion = release.gameVersion.filter( (str) => str != "Fabric" && str != "Forge")
-
-              
-    //     }
-        
-        
-    // }
-
+export async function crawl_cf(start_page: number) {
+    const PAGE_SIZE = 5;
+    let page = start_page;
+    while (true) {
+        let to_add = get_page(page, PAGE_SIZE);
+        for(const pkg of to_add) {
+            await index_package(pkg.id);
+        }
+        page += 1;
+    }
 }

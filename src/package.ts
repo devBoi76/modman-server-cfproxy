@@ -187,8 +187,11 @@ export function get_desired_release(pkg: Package, game_version: string, release_
         return b.released - a.released;
     });
     if(newest.length === 0) {
-        util.print_error(`ERROR - package ${pkg.name} for version ${game_version} not found`);
-        process.exit();
+        util.print_note(`Package ${pkg.name} for version ${game_version} not found`);
+        util.print_note(`Using latest release`);
+        newest = pkg.releases.sort( (a, b) => {
+            return b.released - a.released;
+        })
     }
     return newest[0]
 }

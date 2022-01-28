@@ -24,19 +24,17 @@ app.get("/v1/download_release/:slug/:rel_id", (req, res) => {
     res.redirect(redirect_url);
 });
 
-
-
-
-function main() {
+async function main() {
     util.print_debug("Starting server...");
     config.ensure_files()
-    cfapi.index_package(74072);
-    app.listen(PORT, () => {
-        util.print_debug(`Server started at ${PORT}`);
-    });
+    if (filedef.get_conf().crawl) {
+        util.print_note("Starting to crawl curseforge");
+        cfapi.crawl_cf(0)
+    } else {
+        app.listen(PORT, () => {
+            util.print_debug(`Server started at ${PORT}`);
+        });
+    }
 }
-
-
-
 
 main();

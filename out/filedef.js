@@ -63,6 +63,7 @@ class conf {
     constructor() {
         this.api_type = 1;
         this.name = "My mod repository";
+        this.crawl = false;
     }
 }
 exports.conf = conf;
