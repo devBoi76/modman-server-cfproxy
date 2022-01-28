@@ -64,7 +64,6 @@ def add_pkg_to_idx(cf_id: int):
 
         releases = get_releases(current_id)
         
-        started_at = dependency_list
         for rel in releases:
             for dep in rel['dependencies']:
                 if dep['type'] != 2:
