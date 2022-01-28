@@ -132,7 +132,7 @@ export class Locator {
     }
 
     get short_slug() {
-        return `${this.repo}/${this.slug}/${this.rel_id}`
+        return `${this.repo}->${this.slug}->${this.rel_id}`
     }
 }
 

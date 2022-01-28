@@ -23,10 +23,10 @@ exports.index_package = exports.add_pkg_to_tracked = exports.get_package = expor
 const packages = __importStar(require("./package"));
 const util = __importStar(require("./util"));
 const filedef = __importStar(require("./filedef"));
+const main_1 = require("./main");
 // All of this is based on https://github.com/Mondanzo/mc-curseforge-api
 const BASE_URL = "https://addons-ecs.forgesvc.net/api/v2/addon";
 const USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:96.0) Gecko/20100101 Firefox/96.0";
-const REPOSITORY = "https://curseforge.com";
 class CfRelease {
 }
 class CfPackage {
@@ -86,7 +86,6 @@ function index_package(id_to_add) {
                         if (tmp === undefined) {
                             tmp = new Set();
                         }
-                        util.print_debug(tmp);
                         tmp.add(dependency.addonId);
                         dependency_tree.set(current_id, tmp);
                         break;
@@ -127,10 +126,15 @@ function index_package(id_to_add) {
         util.print_debug(`Installing ${current_id}`);
         let pkg = get_package(current_id);
         let releases = get_releases(current_id);
+        if (filedef.get_tracked().packages.map((p) => p.slug).includes(pkg.slug)) {
+            util.print_debug(`Package ${pkg.name} already installed, skipping`);
+            continue;
+        }
         util.print_debug(`${releases.length} releases`);
         let authors = pkg.authors.map((author) => author.name);
-        let p = packages.Package.create_new(pkg.name, pkg.summary, authors, [], REPOSITORY, pkg.slug);
+        let p = packages.Package.create_new(pkg.name, pkg.summary, authors, [], main_1.REPOSITORY, pkg.slug);
         packages.TrackedPackage.mark_updated(pkg.id, p.slug);
+        let r_id = 0;
         for (const release of releases) {
             let loader = "Forge";
             if (release.gameVersion.includes("Fabric")) {
@@ -144,14 +148,14 @@ function index_package(id_to_add) {
             let dependencies = new Array(); // sslugs
             for (const dependency of release.dependencies) {
                 let ppkg = get_package(dependency.addonId);
-                let ppkg_loc = packages.Locator.from_short_slug(`${REPOSITORY}->${ppkg.slug}->0`);
+                let ppkg_loc = packages.Locator.from_short_slug(`${main_1.REPOSITORY}->${ppkg.slug}->0`);
                 let local_pkg = packages.locator_to_package(ppkg_loc, filedef.get_index().packages);
                 let rel_id = packages.get_desired_release(local_pkg, release.gameVersion[0]).id;
-                let slug = new packages.Locator(REPOSITORY, local_pkg.slug, rel_id);
+                let slug = new packages.Locator(main_1.REPOSITORY, local_pkg.slug, rel_id);
                 dependencies.push(slug.short_slug);
             }
-            let r_id = p.next_release_id;
-            let r = packages.Release.create_new("unknown", release.gameVersion[0], dependencies, `${p.repository}->${p.slug}->${r_id}`, Date.parse(release.fileDate), release.downloadUrl, true);
+            let r = packages.Release.create_new("unknown", release.gameVersion[0], dependencies, `${p.repository}->${p.slug}->${r_id}`, Date.parse(release.fileDate), release.downloadUrl.replace("https://edge.", "https://media."), true);
+            r_id += 1;
         }
     }
     // to_add.add(id_to_add);

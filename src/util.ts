@@ -34,10 +34,10 @@ export const colors = {
 	BgWhite: "\x1b[47m"
 }
 
-export function print_error(text: string) {
+export function print_error(text: any) {
 	console.log(`${colors.BgRedBright}${colors.FgBlack}[ERROR]${colors.Reset}${colors.Bright} ${text}${colors.Reset}`);
 }
-export function print_note(text: string) {
+export function print_note(text: any) {
 	console.log(`${colors.BgCyan}${colors.FgBlack}[NOTE]${colors.Reset} ${text}`);
 }
 

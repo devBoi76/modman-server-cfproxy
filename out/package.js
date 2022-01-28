@@ -115,7 +115,7 @@ class Locator {
         return new this(repo, slug, Number(rel_id));
     }
     get short_slug() {
-        return `${this.repo}/${this.slug}/${this.rel_id}`;
+        return `${this.repo}->${this.slug}->${this.rel_id}`;
     }
 }
 exports.Locator = Locator;
