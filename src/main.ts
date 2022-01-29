@@ -1,13 +1,16 @@
 import express from "express"
 import * as util from "./util"
 import * as config from "./config"
-import * as cfapi from "./cfapi"
 import * as filedef from "./filedef"
 import * as packages from "./package"
+// import * as cfapi from "./cfapi"
+
+config.ensure_files()
+const c = filedef.get_conf()
 
 const app = express();
 export const PORT = 5000;
-export const REPOSITORY = `http://localhost:${PORT}`
+export const REPOSITORY = `${c.repository}:${PORT}`
 
 app.get("/", (req, res) => {
     res.send("Hello there")
@@ -26,15 +29,11 @@ app.get("/v1/download_release/:slug/:rel_id", (req, res) => {
 
 async function main() {
     util.print_debug("Starting server...");
-    config.ensure_files()
-    if (filedef.get_conf().crawl) {
-        util.print_note("Starting to crawl curseforge");
-        cfapi.crawl_cf(0)
-    } else {
-        app.listen(PORT, () => {
-            util.print_debug(`Server started at ${PORT}`);
-        });
-    }
+    
+    app.listen(PORT, () => {
+        util.print_debug(`Server started at ${PORT}`);
+    });
+    
 }
 
 main();
