@@ -19,15 +19,16 @@ var __importStar = (this && this.__importStar) || function (mod) {
     return result;
 };
 Object.defineProperty(exports, "__esModule", { value: true });
-exports.get_conf = exports.conf = exports.get_tracked = exports.tracked = exports.write = exports.get_index = exports.index = void 0;
+exports.get_conf = exports.Config = exports.get_tracked = exports.Tracked = exports.write = exports.get_index = exports.Index = void 0;
 const fs = __importStar(require("fs"));
-class index {
+// This file is meant to define the layout of files that modman server interfaces with and provide helper functions to interface with them
+class Index {
     constructor() {
         this.next_pkg_id = 0;
         this.packages = [];
     }
 }
-exports.index = index;
+exports.Index = Index;
 function get_index() {
     let f = fs.readFileSync("./assets/pkg_index.json", "utf-8");
     return JSON.parse(f);
@@ -47,26 +48,27 @@ function write(file, name) {
     }
 }
 exports.write = write;
-class tracked {
+class Tracked {
     constructor() {
         this.cf_ids = [];
         this.packages = [];
     }
 }
-exports.tracked = tracked;
+exports.Tracked = Tracked;
 function get_tracked() {
     let f = fs.readFileSync("./assets/pkgs_to_track.json", "utf-8");
     return JSON.parse(f);
 }
 exports.get_tracked = get_tracked;
-class conf {
+class Config {
     constructor() {
         this.api_type = 1;
         this.name = "My mod repository";
         this.crawl = false;
+        this.repository = "http://localhost";
     }
 }
-exports.conf = conf;
+exports.Config = Config;
 function get_conf() {
     let f = fs.readFileSync("./assets/conf.json", "utf-8");
     return JSON.parse(f);

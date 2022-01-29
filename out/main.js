@@ -35,12 +35,14 @@ exports.REPOSITORY = exports.PORT = void 0;
 const express_1 = __importDefault(require("express"));
 const util = __importStar(require("./util"));
 const config = __importStar(require("./config"));
-const cfapi = __importStar(require("./cfapi"));
 const filedef = __importStar(require("./filedef"));
 const packages = __importStar(require("./package"));
+// import * as cfapi from "./cfapi"
+config.ensure_files();
+const c = filedef.get_conf();
 const app = express_1.default();
 exports.PORT = 5000;
-exports.REPOSITORY = `http://localhost:${exports.PORT}`;
+exports.REPOSITORY = `${c.repository}:${exports.PORT}`;
 app.get("/", (req, res) => {
     res.send("Hello there");
 });
@@ -56,16 +58,9 @@ app.get("/v1/download_release/:slug/:rel_id", (req, res) => {
 function main() {
     return __awaiter(this, void 0, void 0, function* () {
         util.print_debug("Starting server...");
-        config.ensure_files();
-        if (filedef.get_conf().crawl) {
-            util.print_note("Starting to crawl curseforge");
-            cfapi.crawl_cf(0);
-        }
-        else {
-            app.listen(exports.PORT, () => {
-                util.print_debug(`Server started at ${exports.PORT}`);
-            });
-        }
+        app.listen(exports.PORT, () => {
+            util.print_debug(`Server started at ${exports.PORT}`);
+        });
     });
 }
 main();
