@@ -49,10 +49,23 @@ let cf_release_cache = new Map();
 function get_releases(cf_id) {
     return __awaiter(this, void 0, void 0, function* () {
         if (cf_release_cache.has(cf_id)) {
+            util.print_debug(`Cache hit for releases of ${cf_id}`);
             return cf_release_cache.get(cf_id);
         }
-        let resp = yield node_fetch_1.default(`${BASE_URL}/${cf_id}/files`);
-        let tmp = yield resp.json();
+        let resp = undefined;
+        let tmp = undefined;
+        while (true) {
+            resp = yield node_fetch_1.default(`${BASE_URL}/${cf_id}/files`);
+            try {
+                tmp = yield resp.json();
+                break;
+            }
+            catch (err) {
+                util.print_debug("Could not get release, retrying");
+                continue;
+            }
+        }
+        // console.log(tmp);
         cf_release_cache.set(cf_id, tmp);
         return tmp;
     });
@@ -61,10 +74,23 @@ exports.get_releases = get_releases;
 function get_package(cf_id) {
     return __awaiter(this, void 0, void 0, function* () {
         if (cf_package_cache.has(cf_id)) {
+            util.print_debug(`Cache hit for package of ${cf_id}`);
             return cf_package_cache.get(cf_id);
         }
-        let resp = yield node_fetch_1.default(`${BASE_URL}/${cf_id}`);
-        let tmp = yield resp.json();
+        let resp = undefined;
+        let tmp = undefined;
+        while (true) {
+            resp = yield node_fetch_1.default(`${BASE_URL}/${cf_id}`);
+            try {
+                tmp = yield resp.json();
+                break;
+            }
+            catch (err) {
+                util.print_debug("Could not get release, retrying");
+                continue;
+            }
+        }
+        // console.log(tmp);
         cf_package_cache.set(cf_id, tmp);
         return tmp;
     });
@@ -99,6 +125,8 @@ function index_package(id_to_add) {
                 for (const dependency of release.dependencies) {
                     switch (dependency.type) {
                         case 2:
+                            util.print_debug(`Encountered  (${dependency.type}) dependency type for ${current_id} release ${release.displayName} - skipping`);
+                            break;
                         case 5:
                             util.print_debug(`Encountered  (${dependency.type}) dependency type for ${current_id} release ${release.displayName} - skipping`);
                             break;
@@ -172,6 +200,11 @@ function index_package(id_to_add) {
                 }
                 let dependencies = new Array(); // sslugs
                 for (const dependency of release.dependencies) {
+                    util.print_debug(`Resolving dependencies of ${release.displayName}`);
+                    if (dependency.type == 2 || dependency.type == 5) {
+                        continue;
+                    }
+                    console.log(dependency);
                     let ppkg = yield get_package(dependency.addonId);
                     let ppkg_loc = packages.Locator.from_short_slug(`${main_1.REPOSITORY}->${ppkg.slug}->0`);
                     let local_pkg = packages.locator_to_package(ppkg_loc, filedef.get_index().packages);

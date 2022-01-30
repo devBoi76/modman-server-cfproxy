@@ -15,7 +15,8 @@
     "src/util.ts",
     "src/package.ts",
     "src/filedef.ts",
-    "src/config.ts"
+    "src/config.ts",
+    "src/web_interface.ts"
   ],
   "lib": ["es2015"]
 }

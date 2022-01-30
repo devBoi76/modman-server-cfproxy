@@ -37,14 +37,16 @@ const util = __importStar(require("./util"));
 const config = __importStar(require("./config"));
 const filedef = __importStar(require("./filedef"));
 const packages = __importStar(require("./package"));
-// import * as cfapi from "./cfapi"
+const web_interface = __importStar(require("./web_interface"));
+const cfapi = __importStar(require("./cfapi"));
 config.ensure_files();
 const c = filedef.get_conf();
 const app = express_1.default();
 exports.PORT = 5000;
 exports.REPOSITORY = `${c.repository}:${exports.PORT}`;
 app.get("/", (req, res) => {
-    res.send("Hello there");
+    let html = web_interface.default_template(web_interface.package_list(filedef.get_index().packages));
+    res.send(html);
 });
 app.get("/v1/get_available_packages", (req, res) => {
     let idx = filedef.get_index().packages;
@@ -58,6 +60,10 @@ app.get("/v1/download_release/:slug/:rel_id", (req, res) => {
 function main() {
     return __awaiter(this, void 0, void 0, function* () {
         util.print_debug("Starting server...");
+        let to_index = filedef.get_tracked().cf_ids;
+        for (const cf_id of to_index) {
+            cfapi.index_package(cf_id);
+        }
         app.listen(exports.PORT, () => {
             util.print_debug(`Server started at ${exports.PORT}`);
         });

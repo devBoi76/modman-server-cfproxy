@@ -46,20 +46,44 @@ let cf_release_cache = new Map<number, Array<CfRelease>>();
 
 export async function get_releases(cf_id: number): Promise<Array<CfRelease>> {
     if (cf_release_cache.has(cf_id)) {
+        util.print_debug(`Cache hit for releases of ${cf_id}`)
         return cf_release_cache.get(cf_id)
     }
-    let resp = await fetch(`${BASE_URL}/${cf_id}/files`);
-    let tmp = await resp.json();
+    let resp = undefined;
+    let tmp = undefined;
+    while (true) {
+        resp = await fetch(`${BASE_URL}/${cf_id}/files`);        
+        try {
+            tmp = await resp.json();
+            break;
+        } catch (err) {
+            util.print_debug("Could not get release, retrying")
+            continue;
+        }
+    }
+    // console.log(tmp);
     cf_release_cache.set(cf_id, tmp);
     return tmp;
 }
 
 export async function get_package(cf_id: number): Promise<CfPackage> {
     if (cf_package_cache.has(cf_id)) {
+        util.print_debug(`Cache hit for package of ${cf_id}`)
         return cf_package_cache.get(cf_id);
     }
-    let resp = await fetch(`${BASE_URL}/${cf_id}`);
-    let tmp = await resp.json()
+    let resp = undefined;
+    let tmp = undefined;
+    while (true) {
+        resp = await fetch(`${BASE_URL}/${cf_id}`);
+        try {
+            tmp = await resp.json();
+            break;
+        } catch (err) {
+            util.print_debug("Could not get release, retrying")
+            continue;
+        }
+    }
+    // console.log(tmp);
     cf_package_cache.set(cf_id, tmp);
     return tmp;
 }
@@ -91,28 +115,28 @@ export async function index_package(id_to_add: number) {
 
         for (const release of releases) {
             for (const dependency of release.dependencies) {
-
-
                 switch(dependency.type) {
                     case 2:
-                        case 5:
-                            util.print_debug(`Encountered  (${dependency.type}) dependency type for ${current_id} release ${release.displayName} - skipping`);
-                            break;
-                        case 6:
-                        case 4:
-                        case 3:
-                        case 1:
-                        // required
-                        if (!resolved_ids.has(dependency.addonId)) {
-                            ids_to_do.push(dependency.addonId);
-                        }
-                        let tmp = dependency_tree.get(current_id);
-                        if (tmp === undefined) {
-                           tmp = new Set<number>() 
-                        }
-                        tmp.add(dependency.addonId);
-                        dependency_tree.set(current_id, tmp);
+                        util.print_debug(`Encountered  (${dependency.type}) dependency type for ${current_id} release ${release.displayName} - skipping`);
                         break;
+                    case 5:
+                        util.print_debug(`Encountered  (${dependency.type}) dependency type for ${current_id} release ${release.displayName} - skipping`);
+                        break;
+                    case 6:
+                    case 4:
+                    case 3:
+                    case 1:
+                    // required
+                    if (!resolved_ids.has(dependency.addonId)) {
+                        ids_to_do.push(dependency.addonId);
+                    }
+                    let tmp = dependency_tree.get(current_id);
+                    if (tmp === undefined) {
+                        tmp = new Set<number>() 
+                    }
+                    tmp.add(dependency.addonId);
+                    dependency_tree.set(current_id, tmp);
+                    break;
                     
                     default:
                         util.print_debug(`Encountered  (${dependency.type}) dependency type for ${current_id} release ${release.displayName} - skipping. Should be unreachable`);
@@ -179,8 +203,14 @@ export async function index_package(id_to_add: number) {
             }
             let dependencies = new Array<string>(); // sslugs
             for (const dependency of release.dependencies) {
+                util.print_debug(`Resolving dependencies of ${release.displayName}`);
+                if (dependency.type == 2 || dependency.type == 5) {
+                    continue;
+                }
+                console.log(dependency);
                 let ppkg = await get_package(dependency.addonId);
                 let ppkg_loc = packages.Locator.from_short_slug(`${REPOSITORY}->${ppkg.slug}->0`)
+
                 let local_pkg = packages.locator_to_package(ppkg_loc, filedef.get_index().packages);
                 let rel_id = packages.get_desired_release(local_pkg, release.gameVersion[0]).id;
                 let slug = new packages.Locator(REPOSITORY, local_pkg.slug, rel_id);

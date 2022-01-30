@@ -123,11 +123,12 @@ function locator_to_release(locator, known_packages) {
     known_packages = known_packages.filter((pkg) => { return pkg.repository == locator.repo; });
     if (known_packages.length == 0) {
         util.print_error(`Repository ${locator.repo} not found`);
+        util.print_note(`Was looking for ${locator.slug}->${locator.rel_id} (Release)`);
         process.exit();
     }
     known_packages = known_packages.filter((pkg) => { return pkg.slug == locator.slug; });
     if (known_packages.length == 0) {
-        util.print_error(`Package ${locator.repo}/${locator.slug} not found`);
+        util.print_error(`Package ${locator.repo}->${locator.slug} not found (Release)`);
         process.exit();
     }
     let rel = undefined;
@@ -135,7 +136,7 @@ function locator_to_release(locator, known_packages) {
         rel = known_packages[0].releases[locator.rel_id];
     }
     catch (err) {
-        util.print_error(`Release ${locator.short_slug} not found`);
+        util.print_error(`Release ${locator.short_slug} not found (Release)`);
         process.exit();
     }
     return rel;
@@ -145,11 +146,12 @@ function locator_to_package(locator, known_packages) {
     known_packages = known_packages.filter((pkg) => { return pkg.repository == locator.repo; });
     if (known_packages.length == 0) {
         util.print_error(`Repository ${locator.repo} not found`);
+        util.print_note(`Was looking for ${locator.short_slug} (Package)`);
         process.exit();
     }
     known_packages = known_packages.filter((pkg) => { return pkg.slug == locator.slug; });
     if (known_packages.length == 0) {
-        util.print_error(`Package ${locator.repo}/${locator.slug} not found`);
+        util.print_error(`Package ${locator.repo}->${locator.slug} not found (Package)`);
         process.exit();
     }
     return known_packages[0];
